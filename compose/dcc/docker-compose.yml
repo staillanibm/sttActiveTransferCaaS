@@ -1,0 +1,10 @@
+services:
+  dcc:
+    image: default-route-openshift-image-registry.apps.68f62d11926501b4673f4b0b.am1.techzone.ibm.com/mft/stt-activetransfer-dcc:1.0.0-mysql
+    container_name: dcc 
+    environment:
+      DB_ACTION: create   
+    volumes:
+      - ./dcc/db:/opt/softwareag/common/auth/db:ro
+
+

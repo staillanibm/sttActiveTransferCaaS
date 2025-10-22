@@ -1,0 +1,286 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mft
+  labels:
+    app.kubernetes.io/name: activetransfer
+    app.kubernetes.io/instance: mft
+    app.kubernetes.io/version: "11.1"
+data:
+  application.properties: |
+    jdbcfunc.ISInternal.connPoolAlias=DVPool
+    jdbcfunc.ISCoreAudit.connPoolAlias=DVPool
+    jdbcfunc.ActiveTransfer.connPoolAlias=DVPool
+    jdbcfunc.CentralUsers.connPoolAlias=DVPool
+
+    jdbc.DVPool.minConns=1
+    jdbc.DVPool.maxConns=100
+    jdbc.DVPool.expireTime=60000
+    jdbc.DVPool.dbURL=$secret{dbUrl}
+    jdbc.DVPool.userid=$secret{dbUser}
+    jdbc.DVPool.password=$secret{dbPassword}
+    #jdbc.DVPool.driverAlias=DataDirect Connect JDBC PostgreSQL Driver
+    jdbc.DVPool.driverAlias=MySQL Database Java Connector Driver
+    jdbc.DVPool.description=MFT JDBC Pool
+    jdbc.DVPool.poolThreshold=5
+    jdbc.DVPool.waitingThread=5
+
+    user.Administrator.password=$secret{adminPassword}
+
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: jgroup-config
+data: 
+  jgroup-properties.xml: |
+    <config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xmlns="urn:org:jgroups"
+        xsi:schemaLocation="urn:org:jgroups http://www.jgroups.org/schema/jgroups.xsd"
+        version="4.2.2.Final">
+
+      <TCP bind_port="7800"
+           recv_buf_size="${tcp.recv_buf_size:130k}"
+           send_buf_size="${tcp.send_buf_size:130k}"
+           max_bundle_size="64K"
+           sock_conn_timeout="300"
+           thread_pool.min_threads="0"
+           thread_pool.max_threads="20"
+           thread_pool.keep_alive_time="30000"/>
+
+      <org.jgroups.protocols.kubernetes.KUBE_PING
+          namespace="${KUBERNETES_NAMESPACE:default}"
+          labels="${KUBERNETES_LABELS:app=mft}"/>
+
+      <MERGE3 min_interval="10000" max_interval="30000"/>
+      <FD_SOCK/>
+      <FD_ALL timeout="9000" interval="3000"/>
+      <VERIFY_SUSPECT timeout="1500"/>
+      <BARRIER/>
+      <pbcast.NAKACK2 use_mcast_xmit="false" discard_delivered_msgs="true"/>
+      <UNICAST3/>
+      <pbcast.STABLE desired_avg_gossip="50000" max_bytes="4M"/>
+      <pbcast.GMS print_local_addr="true" join_timeout="2000" print_physical_addrs="true"/>
+      <UFC max_credits="2M" min_threshold="0.4"/>
+      <MFC max_credits="2M" min_threshold="0.4"/>
+      <FRAG2 frag_size="60K"/>
+      <pbcast.STATE_TRANSFER/>
+    </config>
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: mft
+  labels:
+    app.kubernetes.io/name: activetransfer
+    app.kubernetes.io/instance: mft
+    app.kubernetes.io/version: "11.1"
+spec:
+  type: ClusterIP
+  ports:
+  - port: 5555
+    protocol: TCP
+    targetPort: http
+    name: http
+  - port: 9999
+    protocol: TCP
+    targetPort: diag
+    name: diag
+  - port: 5543
+    protocol: TCP
+    targetPort: https
+    name: https
+  selector:
+    app.kubernetes.io/name: activetransfer
+    app.kubernetes.io/instance: mft
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: mft-listeners
+  labels:
+    app.kubernetes.io/name: activetransfer
+    app.kubernetes.io/instance: mft
+    app.kubernetes.io/version: "11.1"
+spec:
+  type: NodePort
+  ports:
+  - port: 8000
+    protocol: TCP
+    targetPort: sftp
+    name: sftp
+  selector:
+    app.kubernetes.io/name: activetransfer
+    app.kubernetes.io/instance: mft
+
+---
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: mft-sa
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: jgroups-kubeping-pod-reader
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list"]
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: jgroups-kubeping-api-access
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: jgroups-kubeping-pod-reader
+subjects:
+- kind: ServiceAccount
+  name: mft-sa
+  namespace: mft
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mft
+  labels:
+    app.kubernetes.io/name: activetransfer
+    app.kubernetes.io/instance: mft
+    app.kubernetes.io/version: "11.1"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: activetransfer
+      app.kubernetes.io/instance: mft
+  template:
+    metadata:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/metrics" 
+        prometheus.io/port: "5555"
+        prometheus.io/scheme: "http"
+      labels:
+        app.kubernetes.io/name: activetransfer
+        app.kubernetes.io/instance: mft
+    spec:
+      serviceAccountName: mft-sa
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: mft
+          image: "default-route-openshift-image-registry.apps.68f62d11926501b4673f4b0b.am1.techzone.ibm.com/mft/stt-activetransfer:1.0.0-mysql"
+          imagePullPolicy: Always
+          env:
+          - name: JAVA_MIN_MEM
+            value: 2048M
+          - name: JAVA_MAX_MEM
+            value: 4096M
+          - name: KUBERNETES_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: KUBERNETES_LABELS
+            value: "app.kubernetes.io/instance=mft"
+          ports:
+          - containerPort: 8000
+            name: sftp
+            protocol: TCP
+          - containerPort: 5543
+            name: https
+            protocol: TCP
+          - containerPort: 9999
+            name: diag
+            protocol: TCP
+          - containerPort: 5555
+            name: http
+            protocol: TCP
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+#            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          startupProbe:
+            failureThreshold: 32
+            initialDelaySeconds: 20
+            periodSeconds: 5
+            tcpSocket:
+              port: http
+          livenessProbe:
+            failureThreshold: 3
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 0
+            periodSeconds: 15
+            successThreshold: 1
+            timeoutSeconds: 2
+          readinessProbe:
+            failureThreshold: 5
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 0
+            periodSeconds: 15
+            successThreshold: 1
+            timeoutSeconds: 2
+          resources:
+            limits:
+              cpu: 2000m
+              memory: 4096Mi
+            requests:
+              cpu: 1000m
+              memory: 2048Mi
+          volumeMounts:
+            - name: jgroup-config-file
+              mountPath: /opt/softwareag/IntegrationServer/instances/default/packages/WmMFT/resources/jgroup-properties.xml
+              subPath: jgroup-properties.xml 
+            - name: application-properties
+              mountPath: /opt/softwareag/IntegrationServer/instances/default/application.properties
+              subPath: application.properties
+              readOnly: true
+            - name: mft-secrets
+              mountPath: /etc/secrets
+              readOnly: true
+            - mountPath: /tmp
+              name: tmp
+              readOnly: false
+            - mountPath: /files
+              name: fileshare
+              readOnly: false
+      volumes:
+        - name: jgroup-config-file
+          configMap:
+            name: jgroup-config
+            items:
+              - key: jgroup-properties.xml
+                path: jgroup-properties.xml
+        - name: mft-secrets
+          secret:
+            secretName: mft-secrets
+            defaultMode: 0440
+        - name: application-properties
+          configMap:
+            name: mft
+            defaultMode: 0444 
+            items:
+            - key: application.properties
+              path: application.properties
+        - name: tmp
+          emptyDir: {}
+        - name: fileshare
+          emptyDir: {}
