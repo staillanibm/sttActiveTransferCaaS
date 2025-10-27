@@ -19,11 +19,28 @@ data:
     jdbc.DVPool.dbURL=$secret{dbUrl}
     jdbc.DVPool.userid=$secret{dbUser}
     jdbc.DVPool.password=$secret{dbPassword}
-    #jdbc.DVPool.driverAlias=DataDirect Connect JDBC PostgreSQL Driver
-    jdbc.DVPool.driverAlias=MySQL Database Java Connector Driver
+    jdbc.DVPool.driverAlias=DataDirect Connect JDBC PostgreSQL Driver
     jdbc.DVPool.description=MFT JDBC Pool
     jdbc.DVPool.poolThreshold=5
     jdbc.DVPool.waitingThread=5
+
+    healthindicators.Adapters.enabled=true
+    healthindicators.Cluster.enabled=false
+    healthindicators.Diskspace.enabled=true
+    healthindicators.Diskspace.properties.threshold.value=10
+    healthindicators.HybridConnections.enabled=false
+    healthindicators.JDBC.enabled=true
+    healthindicators.JMS.enabled=false
+    healthindicators.JNDIAliases.enabled=false
+    healthindicators.Memory.enabled=true
+    healthindicators.Memory.properties.threshold.value=10
+    healthindicators.RemoteServers.enabled=false
+    healthindicators.SFTPServers.enabled=false
+    healthindicators.ServiceThread.enabled=true
+    healthindicators.ServiceThread.properties.threshold.value=10
+    healthindicators.Sessions.enabled=true
+    healthindicators.Sessions.properties.threshold.value=85
+    healthindicators.UMAliases.enabled=false
 
     user.Administrator.password=$secret{adminPassword}
 
@@ -108,16 +125,33 @@ metadata:
     app.kubernetes.io/instance: mft
     app.kubernetes.io/version: "11.1"
 spec:
-  type: NodePort
+  type: ClusterIP
   ports:
-  - port: 8000
-    protocol: TCP
-    targetPort: sftp-listener
-    name: sftp-listener
-  - port: 8001
+  - port: 20001
     protocol: TCP
     targetPort: https-listener
     name: https-listener
+  selector:
+    app.kubernetes.io/name: activetransfer
+    app.kubernetes.io/instance: mft
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: mft-listeners-lb
+  labels:
+    app.kubernetes.io/name: activetransfer
+    app.kubernetes.io/instance: mft
+    app.kubernetes.io/version: "11.1"
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 20000
+    protocol: TCP
+    targetPort: sftp-listener
+    name: sftp-listener
   selector:
     app.kubernetes.io/name: activetransfer
     app.kubernetes.io/instance: mft
@@ -153,7 +187,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: mft-sa
-  namespace: mft
+  namespace: mft-pg
 
 ---
 
@@ -183,12 +217,15 @@ spec:
         app.kubernetes.io/instance: mft
     spec:
       serviceAccountName: mft-sa
+      restartPolicy: Always
+      imagePullSecrets:
+        - name: regcred
       securityContext:
         seccompProfile:
           type: RuntimeDefault
       containers:
         - name: mft
-          image: "default-route-openshift-image-registry.apps.68f62d11926501b4673f4b0b.am1.techzone.ibm.com/mft/stt-activetransfer:1.0.0-mysql"
+          image: "default-route-openshift-image-registry.webmethods-48e132e329a93b062aefe96ed994cafc-0000.eu-de.containers.appdomain.cloud/mft/stt-activetransfer:latest"
           imagePullPolicy: Always
           env:
           - name: JAVA_MIN_MEM
@@ -202,10 +239,10 @@ spec:
           - name: KUBERNETES_LABELS
             value: "app.kubernetes.io/instance=mft"
           ports:
-          - containerPort: 8000
+          - containerPort: 20000
             name: sftp-listener
             protocol: TCP
-          - containerPort: 8001
+          - containerPort: 20001
             name: https-listener
             protocol: TCP
           - containerPort: 5543
@@ -224,23 +261,27 @@ spec:
             capabilities:
               drop: ["ALL"]
           startupProbe:
-            failureThreshold: 32
+            failureThreshold: 64 
             initialDelaySeconds: 20
             periodSeconds: 5
             tcpSocket:
               port: http
-          livenessProbe:
-            failureThreshold: 3
-            tcpSocket:
+          readinessProbe:
+            failureThreshold: 5
+            httpGet:
+              path: /health
               port: http
+              scheme: HTTP
             initialDelaySeconds: 0
             periodSeconds: 15
             successThreshold: 1
             timeoutSeconds: 2
-          readinessProbe:
-            failureThreshold: 5
-            tcpSocket:
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /health
               port: http
+              scheme: HTTP
             initialDelaySeconds: 0
             periodSeconds: 15
             successThreshold: 1
@@ -263,11 +304,13 @@ spec:
             - name: mft-secrets
               mountPath: /etc/secrets
               readOnly: true
+            - name: db-truststore
+              mountPath: /certs
+              readOnly: true
+            - name: mft-fileshare-rwx
+              mountPath: /fileshare
             - mountPath: /tmp
               name: tmp
-              readOnly: false
-            - mountPath: /files
-              name: fileshare
               readOnly: false
       volumes:
         - name: jgroup-config-file
@@ -280,6 +323,13 @@ spec:
           secret:
             secretName: mft-secrets
             defaultMode: 0440
+        - name: db-truststore
+          secret:
+            secretName: db-truststore
+            items:
+              - key: db-truststore.jks
+                path: db-truststore.jks
+            defaultMode: 0440
         - name: application-properties
           configMap:
             name: mft
@@ -287,7 +337,58 @@ spec:
             items:
             - key: application.properties
               path: application.properties
+        - name: mft-fileshare-rwx
+          persistentVolumeClaim:
+            claimName: mft-fileshare-rwx
         - name: tmp
           emptyDir: {}
-        - name: fileshare
-          emptyDir: {}
+
+---
+
+kind: Route
+apiVersion: route.openshift.io/v1
+metadata:
+  name: mft-ui
+spec:
+  path: /
+  to:
+    kind: Service
+    name: mft
+    weight: 100
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+  wildcardPolicy: None
+
+---
+
+kind: Route
+apiVersion: route.openshift.io/v1
+metadata:
+  name: mft-webinterface
+spec:
+  to:
+    kind: Service
+    name: mft-listeners
+    weight: 100
+  port:
+    targetPort: https-listener
+  tls:
+    termination: passthrough
+  wildcardPolicy: None
+
+---
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mft-fileshare-rwx
+  namespace: mft
+spec:
+  accessModes: [ReadWriteMany]
+  storageClassName: ibmc-vpc-file-min-iops
+  persistentVolumeReclaimPolicy: Retain
+  resources:
+    requests:
+      storage: 10Gi

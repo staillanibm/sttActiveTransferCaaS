@@ -1,0 +1,58 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: dcc-sa
+
+---
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: dcc-job
+  labels:
+    app: dcc
+spec:
+  backoffLimit: 0  
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        app: dcc
+    spec:
+      serviceAccountName: dcc-sa
+      restartPolicy: Never  
+      imagePullSecrets:
+        - name: regcred
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: dcc
+          image: default-route-openshift-image-registry.apps.68f62d11926501b4673f4b0b.am1.techzone.ibm.com/mft/stt-activetransfer-dcc:1.0.0-mysql
+          imagePullPolicy: Always
+          env:
+            - name: DB_ACTION
+              value: "create"
+          volumeMounts:
+            - name: secrets
+              mountPath: /opt/softwareag/common/auth/db
+              readOnly: true
+            - name: tmp                   
+              mountPath: /tmp
+            - name: dcc-logs              
+              mountPath: /opt/softwareag/common/db/logs
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+      volumes:
+        - name: secrets
+          secret:
+            secretName: dcc-secrets
+            defaultMode: 0440
+        - name: tmp
+          emptyDir: {}                    
+        - name: dcc-logs
+          emptyDir: {}

@@ -1,5 +1,10 @@
-secrets.yaml
+*secrets.yaml
 .env
 *.jar
 mysql.yaml
-dcc/db/
+dcc.log.*
+*.sql.gz
+AT-Export*
+certs
+samples
+db-postgres-ctb

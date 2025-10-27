@@ -6,7 +6,7 @@ MFT_TAG=1.0.0-mysql
 
 DCC_BASE_IMAGE=default-route-openshift-image-registry.apps.68f62d11926501b4673f4b0b.am1.techzone.ibm.com/mft/activetransfer-dcc:latest
 DCC_IMAGE_NAME=default-route-openshift-image-registry.apps.68f62d11926501b4673f4b0b.am1.techzone.ibm.com/mft/stt-activetransfer-dcc
-DCC_TAG=1.0.0-mysql
+DCC_TAG=1.0.0-postgres
 
 KUBERNETES_NAMESPACE=mft
 

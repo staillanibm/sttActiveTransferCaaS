@@ -19,8 +19,7 @@ data:
     jdbc.DVPool.dbURL=$secret{dbUrl}
     jdbc.DVPool.userid=$secret{dbUser}
     jdbc.DVPool.password=$secret{dbPassword}
-    #jdbc.DVPool.driverAlias=DataDirect Connect JDBC PostgreSQL Driver
-    jdbc.DVPool.driverAlias=MySQL Database Java Connector Driver
+    jdbc.DVPool.driverAlias=DataDirect Connect JDBC PostgreSQL Driver
     jdbc.DVPool.description=MFT JDBC Pool
     jdbc.DVPool.poolThreshold=5
     jdbc.DVPool.waitingThread=5
@@ -153,7 +152,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: mft-sa
-  namespace: mft
+  namespace: mft-pg
 
 ---
 
@@ -183,6 +182,9 @@ spec:
         app.kubernetes.io/instance: mft
     spec:
       serviceAccountName: mft-sa
+      restartPolicy: Always
+      imagePullSecrets:
+        - name: regcred
       securityContext:
         seccompProfile:
           type: RuntimeDefault

@@ -2,4 +2,5 @@ ARG BASE_IMAGE
 
 FROM ${BASE_IMAGE}
 
-COPY --chown=1724:0 mysql-connector-java-8.0.22.jar $SAG_HOME/common/lib/ext/
+#COPY --chown=1724:0 mysql-connector-java-8.0.22.jar $SAG_HOME/common/lib/ext/
+COPY --chown=1724:0 postgresql-42.7.4.jar $SAG_HOME/common/lib/ext/

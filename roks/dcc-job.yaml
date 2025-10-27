@@ -1,0 +1,67 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: dcc-sa
+
+---
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: dcc-job
+  labels:
+    app: dcc
+spec:
+  backoffLimit: 0  
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        app: dcc
+    spec:
+      serviceAccountName: dcc-sa
+      restartPolicy: Never  
+      imagePullSecrets:
+        - name: regcred
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: dcc
+          image: default-route-openshift-image-registry.webmethods-48e132e329a93b062aefe96ed994cafc-0000.eu-de.containers.appdomain.cloud/mft/activetransfer-dcc:latest
+          imagePullPolicy: Always
+          env:
+            - name: DB_ACTION
+              value: "create"
+          volumeMounts:
+            - name: secrets
+              mountPath: /opt/softwareag/common/auth/db
+              readOnly: true
+            - name: db-truststore
+              mountPath: /certs
+              readOnly: true
+            - name: tmp                   
+              mountPath: /tmp
+            - name: dcc-logs              
+              mountPath: /opt/softwareag/common/db/logs
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+      volumes:
+        - name: secrets
+          secret:
+            secretName: dcc-secrets
+            defaultMode: 0440
+        - name: db-truststore
+          secret:
+            secretName: db-truststore
+            items:
+              - key: db-truststore.jks
+                path: db-truststore.jks
+        - name: tmp
+          emptyDir: {}                    
+        - name: dcc-logs
+          emptyDir: {}
