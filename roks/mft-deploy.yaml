@@ -126,6 +126,10 @@ metadata:
     app.kubernetes.io/version: "11.1"
 spec:
   type: ClusterIP
+  sessionAffinity: ClientIP          
+  sessionAffinityConfig:              
+    clientIP:
+      timeoutSeconds: 3600    
   ports:
   - port: 20001
     protocol: TCP
@@ -147,6 +151,10 @@ metadata:
     app.kubernetes.io/version: "11.1"
 spec:
   type: LoadBalancer
+  sessionAffinity: ClientIP          
+  sessionAffinityConfig:              
+    clientIP:
+      timeoutSeconds: 3600           
   ports:
   - port: 20000
     protocol: TCP
@@ -155,6 +163,23 @@ spec:
   selector:
     app.kubernetes.io/name: activetransfer
     app.kubernetes.io/instance: mft
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: mft-jgroups
+spec:
+  clusterIP: None  
+  publishNotReadyAddresses: true  
+  selector:
+    app.kubernetes.io/name: activetransfer
+    app.kubernetes.io/instance: mft
+  ports:
+  - port: 7800
+    name: jgroups
+    protocol: TCP
 
 ---
 
@@ -254,6 +279,8 @@ spec:
           - containerPort: 5555
             name: http
             protocol: TCP
+          - containerPort: 7800
+            name: jgroups
           securityContext:
             runAsNonRoot: true
             allowPrivilegeEscalation: false
@@ -309,6 +336,8 @@ spec:
               readOnly: true
             - name: mft-fileshare-rwx
               mountPath: /fileshare
+            - name: mft-fileshare-rwx-regional
+              mountPath: /fileshare-reg
             - mountPath: /tmp
               name: tmp
               readOnly: false
@@ -340,6 +369,9 @@ spec:
         - name: mft-fileshare-rwx
           persistentVolumeClaim:
             claimName: mft-fileshare-rwx
+        - name: mft-fileshare-rwx-regional
+          persistentVolumeClaim:
+            claimName: mft-fileshare-rwx-regional
         - name: tmp
           emptyDir: {}
 
@@ -378,17 +410,4 @@ spec:
     termination: passthrough
   wildcardPolicy: None
 
----
 
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: mft-fileshare-rwx
-  namespace: mft
-spec:
-  accessModes: [ReadWriteMany]
-  storageClassName: ibmc-vpc-file-min-iops
-  persistentVolumeReclaimPolicy: Retain
-  resources:
-    requests:
-      storage: 10Gi

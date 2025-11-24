@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mft-fileshare-rwx
+  namespace: mft
+spec:
+  accessModes: [ReadWriteMany]
+  storageClassName: ibmc-vpc-file-min-iops
+  persistentVolumeReclaimPolicy: Retain
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mft-fileshare-rwx-regional
+  namespace: mft
+spec:
+  accessModes: [ReadWriteMany]
+  storageClassName: ibmc-vpc-file-regional
+  persistentVolumeReclaimPolicy: Retain
+  resources:
+    requests:
+      storage: 10Gi
