@@ -1,8 +1,8 @@
-DOCKER_RUNTIME=podman
+DOCKER_RUNTIME=docker
 
 MFT_BASE_IMAGE=default-route-openshift-image-registry.apps.68f62d11926501b4673f4b0b.am1.techzone.ibm.com/mft/activetransfer:latest
 MFT_IMAGE_NAME=default-route-openshift-image-registry.apps.68f62d11926501b4673f4b0b.am1.techzone.ibm.com/mft/stt-activetransfer
-MFT_TAG=1.0.0-mysql
+MFT_TAG=1.0.0-demo
 
 DCC_BASE_IMAGE=default-route-openshift-image-registry.apps.68f62d11926501b4673f4b0b.am1.techzone.ibm.com/mft/activetransfer-dcc:latest
 DCC_IMAGE_NAME=default-route-openshift-image-registry.apps.68f62d11926501b4673f4b0b.am1.techzone.ibm.com/mft/stt-activetransfer-dcc
@@ -15,6 +15,9 @@ mft-build:
 
 dcc-build:
 	cd build && $(DOCKER_RUNTIME) build -t $(DCC_IMAGE_NAME):$(DCC_TAG) --platform=linux/amd64 --build-arg BASE_IMAGE=$(DCC_BASE_IMAGE) -f Dockerfile_dcc .
+
+mft-demo-build:
+	cd build && $(DOCKER_RUNTIME) build -t $(MFT_IMAGE_NAME):$(MFT_TAG) --platform=linux/amd64 --build-arg BASE_IMAGE=$(MFT_BASE_IMAGE) --build-arg WPM_TOKEN=${WPM_TOKEN} --build-arg GIT_TOKEN=${GIT_TOKEN} -f Dockerfile_mft_demo .
 
 mft-push:
 	$(DOCKER_RUNTIME) push $(MFT_IMAGE_NAME):$(MFT_TAG)
@@ -41,3 +44,6 @@ mft-logs:
 
 mft-delete:
 	oc delete -f openshift/mft-deploy.yaml -n $(KUBERNETES_NAMESPACE)
+
+create-file:
+	for i in {1..1000}; do head -c 1024 /dev/urandom | base64 | tr -d '\n'; echo; done > File_$(date +%Y%m%d-%H%M%S).txt

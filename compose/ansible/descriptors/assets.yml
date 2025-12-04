@@ -1,0 +1,69 @@
+---
+# webMethods MFT Certificate Definitions
+#
+# This file defines certificates to be created or updated in MFT server
+#
+# Certificate Types:
+#   - PGP_Private: PGP private key
+#   - PGP_Public: PGP public key
+#   - SSH_PrivateKey: SSH private key
+#   - SSH_PublicKey: SSH public key
+#   - Keystore: X.509 keystore/PKCS12
+#   - Truststore: X.509 truststore
+#
+# Fields:
+#   - alias: Unique certificate identifier (required)
+#   - description: Certificate description (optional)
+#   - type: Certificate type (required)
+#   - path: File system path to certificate file (required)
+#   - keyPassword: Password for encrypted keys (optional, can be empty)
+#   - keyStorePassword: Password for keystores (optional, can be empty)
+
+certificates:
+  # PGP Private Key
+  - alias: other_demo_pgp_privkey
+    description: ""
+    type: PGP_Private
+    path: /certs/demo.private.asc
+    keyPassword: "Password123@"
+    keyStorePassword: ""
+
+  # PGP Public Key
+  - alias: other_demo_pgp_pubkey
+    description: ""
+    type: PGP_Public
+    path: /certs/demo.public.asc
+    keyPassword: ""
+    keyStorePassword: ""
+
+  # X.509 Keystore
+  - alias: other_demo_x509_privkey
+    description: ""
+    type: Keystore
+    path: /certs/demo.cert.p12
+    keyPassword: ""
+    keyStorePassword: "Password123@"
+
+  # X.509 Truststore
+  - alias: other_demo_x509_truststore
+    description: ""
+    type: Truststore
+    path: /certs/demo.truststore.jks
+    keyPassword: ""
+    keyStorePassword: "Password123@"
+
+  # SSH Private Key
+  - alias: other_demo_ssh_privkey
+    description: ""
+    type: SSH_PrivateKey
+    path: /certs/demo.ssh.key
+    keyPassword: "Password123@"
+    keyStorePassword: ""
+
+  # SSH Public Key
+  - alias: other_demo_ssh_pubkey
+    description: ""
+    type: SSH_PublicKey
+    path: /certs/demo.ssh.key.pub
+    keyPassword: ""
+    keyStorePassword: ""

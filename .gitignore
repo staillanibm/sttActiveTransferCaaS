@@ -1,5 +1,6 @@
 *secrets.yaml
 .env
+.env_test
 *.jar
 mysql.yaml
 dcc.log.*
@@ -9,3 +10,7 @@ certs
 samples
 db-postgres-ctb
 .DS_Store
+fileshare
+fileshare-test
+certs
+assets

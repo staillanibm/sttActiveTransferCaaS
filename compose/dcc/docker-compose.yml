@@ -5,6 +5,6 @@ services:
     environment:
       DB_ACTION: create   
     volumes:
-      - ./dcc/db:/opt/softwareag/common/auth/db:ro
+      - ./dcc/db-postgres:/opt/softwareag/common/auth/db:ro
 
 

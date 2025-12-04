@@ -1,0 +1,17 @@
+ARG BASE_IMAGE
+
+FROM ${BASE_IMAGE}
+
+ARG WPM_TOKEN
+ARG GIT_TOKEN
+
+RUN /opt/softwareag/wpm/bin/wpm.sh install -ws https://packages.webmethods.io -wr licensed -j $WPM_TOKEN -d /opt/softwareag/IntegrationServer/instances/default WmJDBCAdapter:latest
+RUN curl -o /opt/softwareag/IntegrationServer/instances/default/packages/WmJDBCAdapter/code/jars/postgresql-42.7.4.jar "https://jdbc.postgresql.org/download/postgresql-42.7.4.jar"
+RUN /opt/softwareag/wpm/bin/wpm.sh install -u staillanibm -p $GIT_TOKEN -r https://github.com/staillanibm -d /opt/softwareag/IntegrationServer/instances/default sttActiveTransferDemo
+RUN /opt/softwareag/IntegrationServer/instances/default/bin/jcode.sh makeall sttActiveTransferDemo
+
+USER 0
+
+RUN chgrp -R 0 /opt/softwareag/IntegrationServer/instances/default && chmod -R g=u /opt/softwareag/IntegrationServer/instances/default
+
+USER 1724

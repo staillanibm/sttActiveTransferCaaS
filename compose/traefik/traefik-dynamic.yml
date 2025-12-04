@@ -1,0 +1,4 @@
+tls:
+  certificates:
+    - certFile: /certs/sttlab.local.cert.pem
+      keyFile: /certs/sttlab.local.key.pem

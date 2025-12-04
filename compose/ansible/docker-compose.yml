@@ -1,0 +1,14 @@
+services:
+  ansible-mft:
+    image: mft-ansible
+    container_name: mft-ansible
+    environment:
+      - MFT_ROOT_URL=http://mft:5555
+      - MFT_USERNAME=Administrator
+      - MFT_PASSWORD=${ADMIN_PASSWORD}
+    volumes:
+      - ./ansible/descriptors/assets.yml:/ansible/assets.yml:ro
+    command: >
+      ansible-playbook
+      /ansible/playbooks/manage_assets.yml
+      -v

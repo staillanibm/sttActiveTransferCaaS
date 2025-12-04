@@ -1,0 +1,19 @@
+# helm repo add hashicorp https://helm.releases.hashicorp.com
+# helm repo update
+# helm install vault hashicorp/vault -f hvault-values.yaml -n vault
+# No init or unseal needed as this is a dev setup
+
+server:
+  dev:
+    enabled: true
+    devRootToken: "root-token"
+  dataStorage:
+    enabled: true
+    size: 5Gi
+    storageClass: null  
+  ha:
+    enabled: false
+  standalone:
+    enabled: true
+ui:
+  enabled: true

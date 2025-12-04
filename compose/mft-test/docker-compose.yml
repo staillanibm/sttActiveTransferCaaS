@@ -1,27 +1,27 @@
 services:
-  mft:
+  mft-test:
     image: default-route-openshift-image-registry.apps.68f62d11926501b4673f4b0b.am1.techzone.ibm.com/mft/stt-activetransfer:1.0.0-mysql
-    #image: default-route-openshift-image-registry.apps.68f62d11926501b4673f4b0b.am1.techzone.ibm.com/mft/stt-activetransfer:1.0.0-demo
-    container_name: mft
+    container_name: mft-test
     platform: linux/amd64
     restart: always
     ports:
-      - "35555:5555"      
-      - "10000-10010:10000-10010" # For the listeners
+      - "45555:5555"      
+      - "20000-20010:10000-10010" # For the listeners
     volumes:
-      - ./mft/application.properties:/opt/softwareag/IntegrationServer/application.properties
+      - ./mft-test/application.properties:/opt/softwareag/IntegrationServer/application.properties
       - $HOME/git/sttActiveTransferDemo:/opt/softwareag/IntegrationServer/instances/default/packages/sttActiveTransferDemo
-      - ./fileshare:/fileshare
+      - ./fileshare-test:/fileshare-test
       - ./certs:/certs
+      - ./certs/mft.cacerts:/opt/softwareag/jvm/jvm/lib/security/cacerts:ro
       - ./assets:/assets
     env_file:
-      - .env
+      - .env_test
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.mft.rule=Host(`mft.sttlab.local`)"
-      - "traefik.http.routers.mft.entrypoints=websecure"
-      - "traefik.http.routers.mft.tls=true"
-      - "traefik.http.services.mft.loadbalancer.server.port=5555"
+      - "traefik.http.routers.mft-test.rule=Host(`mft-test.sttlab.local`)"
+      - "traefik.http.routers.mft-test.entrypoints=websecure"
+      - "traefik.http.routers.mft-test.tls=true"
+      - "traefik.http.services.mft-test.loadbalancer.server.port=5555"
     healthcheck:
       interval: 5s
       retries: 24

@@ -1,0 +1,50 @@
+services:
+  postgres-kc:
+    image: postgres
+    container_name: postgres-kc
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres-kc_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:23.0
+    container_name: keycloak
+    command: start-dev
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.keycloak.rule=Host(`keycloak.sttlab.local`)"
+      - "traefik.http.routers.keycloak.entrypoints=websecure"
+      - "traefik.http.routers.keycloak.tls=true"
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres-kc:5432/keycloak
+      KC_DB_USERNAME: ${DB_USERNAME}
+      KC_DB_PASSWORD: ${DB_PASSWORD}
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      KC_HOSTNAME: keycloak.sttlab.local
+      KC_PROXY: edge
+      KC_HOSTNAME_STRICT: false
+      KC_TRUSTSTORE_PATHS: /opt/keycloak/conf/sttlab.local.truststore.jks
+      KC_TRUSTSTORE_PASSWORD: Password123@
+    volumes:
+      - ./certs/sttlab.local.truststore.jks:/opt/keycloak/conf/sttlab.local.truststore.jks:ro
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres-kc:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres-kc_data:
+    driver: local
